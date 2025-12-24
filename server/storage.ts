@@ -1,38 +1,62 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import {
+  strategies, deposits, rebalanceEvents,
+  type Strategy, type Deposit, type RebalanceEvent,
+  type InsertStrategy, type InsertDeposit
+} from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // Strategies
+  getStrategies(): Promise<Strategy[]>;
+  getStrategy(id: number): Promise<Strategy | undefined>;
+  updateStrategy(id: number, updates: Partial<InsertStrategy>): Promise<Strategy>;
+  createStrategy(strategy: InsertStrategy): Promise<Strategy>;
+
+  // Deposits
+  getDeposits(walletAddress: string): Promise<Deposit[]>;
+  createDeposit(deposit: InsertDeposit): Promise<Deposit>;
+  
+  // Rebalance
+  logRebalance(event: Omit<RebalanceEvent, "id" | "timestamp">): Promise<RebalanceEvent>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getStrategies(): Promise<Strategy[]> {
+    return await db.select().from(strategies).orderBy(desc(strategies.apy));
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getStrategy(id: number): Promise<Strategy | undefined> {
+    const [strategy] = await db.select().from(strategies).where(eq(strategies.id, id));
+    return strategy;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async updateStrategy(id: number, updates: Partial<InsertStrategy>): Promise<Strategy> {
+    const [updated] = await db.update(strategies)
+      .set(updates)
+      .where(eq(strategies.id, id))
+      .returning();
+    return updated;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async createStrategy(strategy: InsertStrategy): Promise<Strategy> {
+    const [newStrategy] = await db.insert(strategies).values(strategy).returning();
+    return newStrategy;
+  }
+
+  async getDeposits(walletAddress: string): Promise<Deposit[]> {
+    return await db.select().from(deposits).where(eq(deposits.walletAddress, walletAddress));
+  }
+
+  async createDeposit(deposit: InsertDeposit): Promise<Deposit> {
+    const [newDeposit] = await db.insert(deposits).values(deposit).returning();
+    return newDeposit;
+  }
+
+  async logRebalance(event: Omit<RebalanceEvent, "id" | "timestamp">): Promise<RebalanceEvent> {
+    const [newEvent] = await db.insert(rebalanceEvents).values(event).returning();
+    return newEvent;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
