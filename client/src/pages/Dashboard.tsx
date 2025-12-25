@@ -13,6 +13,7 @@ import {
 import { useStrategies } from "@/hooks/use-strategies";
 import { useDeposits } from "@/hooks/use-deposits";
 import { useWallet } from "@/hooks/use-wallet";
+import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 
 const chartData = [
   { name: "Jan", value: 4000 },
@@ -25,16 +26,37 @@ const chartData = [
 ];
 
 export default function Dashboard() {
-  const { address } = useWallet();
-  const { data: strategies } = useStrategies();
-  const { data: deposits } = useDeposits(address || "");
+  const { address } = useWallet(); // Truncated display address
+  const solanaWallet = useSolanaWallet(); // Full wallet object
+  const fullAddress = solanaWallet.publicKey?.toBase58() || ""; // Full address for API
 
-  const totalDeposited = deposits?.reduce((acc, d) => acc + Number(d.amount), 0) || 0;
-  const activeStrategiesCount = deposits?.length || 0;
-  
-  const avgApy = strategies && strategies.length > 0 
-    ? strategies.reduce((acc, s) => acc + Number(s.apy), 0) / strategies.length 
+  const { data: strategies } = useStrategies();
+  const { data: deposits } = useDeposits(fullAddress); // Use full address!
+
+  // Calculate stats from user's actual deposits
+  const totalDepositedSOL = deposits?.reduce((acc, d) => acc + Number(d.amount), 0) || 0;
+  const totalDepositedUSD = totalDepositedSOL * 100; // Mock SOL price at $100
+
+  // Get unique strategies user has deposited into
+  const userStrategyIds = new Set(deposits?.map(d => d.strategyId) || []);
+  const activeStrategiesCount = userStrategyIds.size;
+
+  // Calculate average APY from user's active strategies only
+  const userStrategies = strategies?.filter(s => userStrategyIds.has(s.id)) || [];
+  const avgApy = userStrategies.length > 0
+    ? userStrategies.reduce((acc, s) => acc + Number(s.apy), 0) / userStrategies.length
     : 0;
+
+  // Calculate risk score from user's active strategies
+  const avgRiskScore = userStrategies.length > 0
+    ? Math.round(userStrategies.reduce((acc, s) => acc + s.riskScore, 0) / userStrategies.length)
+    : 0;
+
+  const riskLabel = avgRiskScore <= 3 ? 'Low' : avgRiskScore <= 6 ? 'Medium' : 'High';
+
+  // Count unique protocols
+  const uniqueProtocols = new Set(userStrategies.map(s => s.protocol));
+  const protocolCount = uniqueProtocols.size;
 
   const { data: solanaStats } = useQuery({
     queryKey: ["/api/solana/stats"],
@@ -43,7 +65,7 @@ export default function Dashboard() {
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
-    refetchInterval: 5000 
+    refetchInterval: 5000
   });
 
   const { data: activityFeed } = useQuery({
@@ -80,14 +102,14 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold font-mono text-white">
-              ${totalDeposited.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              ${totalDepositedUSD.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
               <span className="text-secondary flex items-center"><ArrowUpRight className="w-3 h-3" /> +12.5%</span> from last month
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="hover-elevate glass-panel border-none">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Average APY</CardTitle>
@@ -110,7 +132,7 @@ export default function Dashboard() {
             <div className="text-3xl font-bold font-mono text-white">
               {activeStrategiesCount}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Across 4 protocols</p>
+            <p className="text-xs text-muted-foreground mt-1">Across {protocolCount} {protocolCount === 1 ? "protocol" : "protocols"}</p>
           </CardContent>
         </Card>
 
@@ -120,8 +142,8 @@ export default function Dashboard() {
             <Shield className="h-4 w-4 text-secondary" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold font-mono text-white">Low</div>
-            <p className="text-xs text-muted-foreground mt-1">Score: 2/10</p>
+            <div className="text-3xl font-bold font-mono text-white">{riskLabel}</div>
+            <p className="text-xs text-muted-foreground mt-1">Score: {avgRiskScore}/10</p>
           </CardContent>
         </Card>
       </div>
@@ -136,13 +158,13 @@ export default function Dashboard() {
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
                   itemStyle={{ color: 'hsl(var(--foreground))' }}
                 />
@@ -163,7 +185,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
               {activityFeed?.map((item: any, i: number) => (
-                <motion.div 
+                <motion.div
                   key={i}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}

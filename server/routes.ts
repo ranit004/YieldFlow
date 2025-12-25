@@ -21,7 +21,7 @@ export async function registerRoutes(
     const feed = await solanaService.getActivityFeed();
     res.json(feed);
   });
-  
+
   // === STRATEGIES ===
   app.get(api.strategies.list.path, async (req, res) => {
     // Simulate live APY fluctuation on read
@@ -63,6 +63,23 @@ export async function registerRoutes(
     }
   });
 
+  // Update deposit status (for withdrawals)
+  app.patch("/api/deposits/:id", async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { status } = req.body;
+
+      if (!['pending', 'confirmed', 'failed', 'withdrawn'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+
+      const updated = await storage.updateDepositStatus(id, status);
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to update deposit" });
+    }
+  });
+
   // === REBALANCE (SIMULATION) ===
   app.post(api.rebalance.execute.path, async (req, res) => {
     const { walletAddress } = req.body;
@@ -74,7 +91,7 @@ export async function registerRoutes(
     }
 
     const highestApyStrategy = strategies[0]; // Ordered by APY desc in storage
-    const rebalanceEvents = [];
+    const rebalanceEvents: any[] = [];
 
     for (const deposit of deposits) {
       if (deposit.strategyId !== highestApyStrategy.id) {
@@ -87,7 +104,7 @@ export async function registerRoutes(
           amount: deposit.amount,
           reason: `Moving to ${highestApyStrategy.name} for higher APY (${highestApyStrategy.apy}%)`
         });
-        
+
         // Update the deposit to reflect new strategy (simplification)
         // Ideally we'd close one deposit and open another, or update the ref
         // For this demo, we assume the user will see the new state on refresh

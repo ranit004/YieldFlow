@@ -4,7 +4,7 @@ import {
   type Strategy, type Deposit, type RebalanceEvent,
   type InsertStrategy, type InsertDeposit
 } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, not } from "drizzle-orm";
 
 export interface IStorage {
   // Strategies
@@ -16,7 +16,8 @@ export interface IStorage {
   // Deposits
   getDeposits(walletAddress: string): Promise<Deposit[]>;
   createDeposit(deposit: InsertDeposit): Promise<Deposit>;
-  
+  updateDepositStatus(id: number, status: string): Promise<Deposit>;
+
   // Rebalance
   logRebalance(event: Omit<RebalanceEvent, "id" | "timestamp">): Promise<RebalanceEvent>;
 }
@@ -45,12 +46,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getDeposits(walletAddress: string): Promise<Deposit[]> {
-    return await db.select().from(deposits).where(eq(deposits.walletAddress, walletAddress));
+    // Only return deposits that are not withdrawn - use SQL filtering
+    const result = await db.select()
+      .from(deposits)
+      .where(
+        and(
+          eq(deposits.walletAddress, walletAddress),
+          not(eq(deposits.status, 'withdrawn'))
+        )
+      );
+    console.log(`getDeposits for ${walletAddress}: found ${result.length} non-withdrawn deposits`);
+    return result;
   }
 
   async createDeposit(deposit: InsertDeposit): Promise<Deposit> {
     const [newDeposit] = await db.insert(deposits).values(deposit).returning();
     return newDeposit;
+  }
+
+  async updateDepositStatus(id: number, status: string): Promise<Deposit> {
+    const [updated] = await db.update(deposits)
+      .set({ status })
+      .where(eq(deposits.id, id))
+      .returning();
+    return updated;
   }
 
   async logRebalance(event: Omit<RebalanceEvent, "id" | "timestamp">): Promise<RebalanceEvent> {

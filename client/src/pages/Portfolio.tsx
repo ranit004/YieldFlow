@@ -1,6 +1,7 @@
 import { useDeposits } from "@/hooks/use-deposits";
 import { useRebalance } from "@/hooks/use-rebalance";
 import { useWallet } from "@/hooks/use-wallet";
+import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -8,21 +9,37 @@ import { Loader2, RefreshCw, AlertCircle, Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { WithdrawModal } from "@/components/WithdrawModal";
+import type { Deposit } from "@shared/schema";
 
 export default function Portfolio() {
-  const { address } = useWallet();
-  const { data: deposits, isLoading } = useDeposits(address || "");
+  const { address } = useWallet(); // Truncated display address
+  const solanaWallet = useSolanaWallet(); // Full wallet object
+  const fullAddress = solanaWallet.publicKey?.toBase58() || ""; // Full address for API
+
+  const { data: deposits, isLoading, refetch } = useDeposits(fullAddress); // Use full address!
   const { mutate: rebalance, isPending: isRebalancing } = useRebalance();
   const { toast } = useToast();
   const [autoRebalance, setAutoRebalance] = useState(false);
+  const [selectedDeposit, setSelectedDeposit] = useState<Deposit | null>(null);
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+
+  const handleWithdrawClick = (deposit: Deposit) => {
+    setSelectedDeposit(deposit);
+    setIsWithdrawModalOpen(true);
+  };
+
+  const handleWithdrawSuccess = () => {
+    refetch(); // Refresh deposits list
+  };
 
   const handleRebalance = () => {
-    if (!address) return;
-    rebalance(address, {
+    if (!fullAddress) return;
+    rebalance(fullAddress, {
       onSuccess: (data) => {
-        toast({ 
-          title: "Rebalance Executed", 
-          description: data.message 
+        toast({
+          title: "Rebalance Executed",
+          description: data.message
         });
       },
       onError: () => {
@@ -31,7 +48,7 @@ export default function Portfolio() {
     });
   };
 
-  if (!address) {
+  if (!solanaWallet.publicKey) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center space-y-4">
         <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
@@ -52,19 +69,19 @@ export default function Portfolio() {
           <h2 className="text-3xl font-display font-bold text-white mb-2">Your Portfolio</h2>
           <p className="text-muted-foreground">Manage your active positions and optimization settings.</p>
         </div>
-        
+
         <div className="flex items-center gap-4 bg-card/50 border border-white/5 p-4 rounded-xl backdrop-blur-md">
           <div className="flex items-center space-x-2">
-            <Switch 
-              id="auto-rebalance" 
+            <Switch
+              id="auto-rebalance"
               checked={autoRebalance}
               onCheckedChange={setAutoRebalance}
             />
             <Label htmlFor="auto-rebalance" className="cursor-pointer">Auto-Rebalance</Label>
           </div>
           <div className="h-6 w-px bg-white/10 mx-2" />
-          <Button 
-            onClick={handleRebalance} 
+          <Button
+            onClick={handleRebalance}
             disabled={isRebalancing}
             variant="outline"
             className="border-primary/50 text-primary hover:bg-primary/10"
@@ -83,7 +100,7 @@ export default function Portfolio() {
             <div>Status</div>
             <div className="text-right">Action</div>
           </div>
-          
+
           {deposits.map((deposit) => (
             <div key={deposit.id} className="grid grid-cols-5 items-center bg-card/40 border border-white/5 p-4 rounded-xl hover:bg-card/60 transition-colors">
               <div className="col-span-2 font-medium flex items-center gap-3">
@@ -94,14 +111,18 @@ export default function Portfolio() {
               </div>
               <div className="font-mono">{deposit.amount} {deposit.tokenSymbol}</div>
               <div>
-                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                  deposit.status === 'confirmed' ? 'bg-green-500/20 text-green-500' : 'bg-yellow-500/20 text-yellow-500'
-                }`}>
+                <span className={`px-2 py-1 rounded text-xs font-bold ${deposit.status === 'confirmed' ? 'bg-green-500/20 text-green-500' : 'bg-yellow-500/20 text-yellow-500'
+                  }`}>
                   {deposit.status.toUpperCase()}
                 </span>
               </div>
               <div className="text-right">
-                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => handleWithdrawClick(deposit)}
+                >
                   Withdraw
                 </Button>
               </div>
@@ -120,6 +141,13 @@ export default function Portfolio() {
           </CardContent>
         </Card>
       )}
+
+      <WithdrawModal
+        deposit={selectedDeposit}
+        isOpen={isWithdrawModalOpen}
+        onClose={() => setIsWithdrawModalOpen(false)}
+        onSuccess={handleWithdrawSuccess}
+      />
     </div>
   );
 }
