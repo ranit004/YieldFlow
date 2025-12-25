@@ -9,3 +9,5 @@ vite.config.ts.*
 .env.production
 *.log
 package-lock.json
+.vercel
+.env*.local

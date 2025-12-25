@@ -2,6 +2,26 @@
     "version": 2,
     "buildCommand": "npm run build",
     "outputDirectory": "dist/public",
+    "functions": {
+        "api/**/*.ts": {
+            "memory": 1024,
+            "maxDuration": 10
+        }
+    },
+    "rewrites": [
+        {
+            "source": "/api/strategies/:id",
+            "destination": "/api/strategies"
+        },
+        {
+            "source": "/api/deposits/:walletAddress",
+            "destination": "/api/deposits"
+        },
+        {
+            "source": "/api/deposits/:id",
+            "destination": "/api/deposits"
+        }
+    ],
     "routes": [
         {
             "handle": "filesystem"
