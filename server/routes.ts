@@ -4,10 +4,23 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 
+import { solanaService } from "./solana";
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // === SOLANA STATS & FEED ===
+  app.get("/api/solana/stats", async (req, res) => {
+    const stats = await solanaService.getNetworkStats();
+    res.json(stats);
+  });
+
+  app.get("/api/solana/feed", async (req, res) => {
+    const feed = await solanaService.getActivityFeed();
+    res.json(feed);
+  });
   
   // === STRATEGIES ===
   app.get(api.strategies.list.path, async (req, res) => {

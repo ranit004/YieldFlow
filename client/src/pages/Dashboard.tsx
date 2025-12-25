@@ -1,64 +1,82 @@
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Activity, Zap, Layers, Globe, Wallet, TrendingUp, ShieldAlert, ArrowUpRight, Shield } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  Area,
+  AreaChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { useStrategies } from "@/hooks/use-strategies";
 import { useDeposits } from "@/hooks/use-deposits";
 import { useWallet } from "@/hooks/use-wallet";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowUpRight, Shield, Wallet, Layers, Activity } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
-// Mock data for the chart
 const chartData = [
-  { name: 'Mon', value: 4000 },
-  { name: 'Tue', value: 4200 },
-  { name: 'Wed', value: 4100 },
-  { name: 'Thu', value: 4800 },
-  { name: 'Fri', value: 5100 },
-  { name: 'Sat', value: 5400 },
-  { name: 'Sun', value: 6000 },
+  { name: "Jan", value: 4000 },
+  { name: "Feb", value: 3000 },
+  { name: "Mar", value: 5000 },
+  { name: "Apr", value: 2780 },
+  { name: "May", value: 1890 },
+  { name: "Jun", value: 2390 },
+  { name: "Jul", value: 3490 },
 ];
 
 export default function Dashboard() {
   const { address } = useWallet();
-  const { data: strategies, isLoading: strategiesLoading } = useStrategies();
-  const { data: deposits, isLoading: depositsLoading } = useDeposits(address || "");
+  const { data: strategies } = useStrategies();
+  const { data: deposits } = useDeposits(address || "");
 
   const totalDeposited = deposits?.reduce((acc, d) => acc + Number(d.amount), 0) || 0;
   const activeStrategiesCount = deposits?.length || 0;
   
-  // Calculate weighted average APY roughly
   const avgApy = strategies && strategies.length > 0 
     ? strategies.reduce((acc, s) => acc + Number(s.apy), 0) / strategies.length 
     : 0;
 
-  if (strategiesLoading) {
-    return <div className="p-8 space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 rounded-2xl" />)}
-      </div>
-      <Skeleton className="h-96 rounded-2xl" />
-    </div>;
-  }
+  const { data: solanaStats } = useQuery({
+    queryKey: ["/api/solana/stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/solana/stats");
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    },
+    refetchInterval: 5000 
+  });
+
+  const { data: activityFeed } = useQuery({
+    queryKey: ["/api/solana/feed"],
+    queryFn: async () => {
+      const res = await fetch("/api/solana/feed");
+      if (!res.ok) throw new Error("Failed to fetch feed");
+      return res.json();
+    },
+    refetchInterval: 3000
+  });
 
   return (
     <div className="p-8 space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-end">
+      <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-display font-bold text-white">Overview</h2>
-          <p className="text-muted-foreground mt-1">Your yield aggregation performance at a glance.</p>
+          <h1 className="text-3xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+            DeFi Yield Aggregator
+          </h1>
+          <p className="text-muted-foreground mt-1">Real-time Solana testnet performance & yield tracking.</p>
         </div>
-        {!address && (
-          <div className="px-4 py-2 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 rounded-lg text-sm flex items-center gap-2">
-            <Activity className="w-4 h-4" />
-            Connect wallet to see personal data
-          </div>
-        )}
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-card border border-primary/20 text-xs">
+          <div className={`w-2 h-2 rounded-full ${solanaStats?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+          <span>Solana Testnet: {solanaStats?.tps || 0} TPS</span>
+          <span className="text-muted-foreground">Slot: {solanaStats?.slot || 0}</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="glass-panel border-none">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="hover-elevate glass-panel border-none">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Value Locked</CardTitle>
-            <Wallet className="w-4 h-4 text-primary" />
+            <Wallet className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold font-mono text-white">
@@ -69,11 +87,11 @@ export default function Dashboard() {
             </p>
           </CardContent>
         </Card>
-
-        <Card className="glass-panel border-none">
+        
+        <Card className="hover-elevate glass-panel border-none">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Average APY</CardTitle>
-            <Layers className="w-4 h-4 text-accent" />
+            <Layers className="h-4 w-4 text-accent" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold font-mono text-white">
@@ -83,49 +101,100 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="glass-panel border-none">
+        <Card className="hover-elevate glass-panel border-none">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Risk Exposure</CardTitle>
-            <Shield className="w-4 h-4 text-secondary" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Active Strategies</CardTitle>
+            <Activity className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold font-mono text-white">
+              {activeStrategiesCount}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Across 4 protocols</p>
+          </CardContent>
+        </Card>
+
+        <Card className="hover-elevate glass-panel border-none">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Risk Score</CardTitle>
+            <Shield className="h-4 w-4 text-secondary" />
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold font-mono text-white">Low</div>
-            <div className="w-full bg-muted/50 h-2 mt-3 rounded-full overflow-hidden">
-              <div className="bg-secondary h-full w-[25%]" />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Diversified across {activeStrategiesCount} protocols</p>
+            <p className="text-xs text-muted-foreground mt-1">Score: 2/10</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="glass-panel border-none p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-bold text-white">Yield Performance</h3>
-          <select className="bg-background/50 border border-white/10 rounded-lg text-sm px-3 py-1">
-            <option>Last 7 Days</option>
-            <option>Last 30 Days</option>
-          </select>
-        </div>
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#9333ea" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#9333ea" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                itemStyle={{ color: '#fff' }}
-              />
-              <Area type="monotone" dataKey="value" stroke="#9333ea" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      <div className="grid gap-6 md:grid-cols-7">
+        <Card className="col-span-4 hover-elevate glass-panel border-none p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold text-white">Yield Performance</h3>
+          </div>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))' }}
+                  itemStyle={{ color: 'hsl(var(--foreground))' }}
+                />
+                <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorValue)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* Live World Activity Feed */}
+        <Card className="col-span-3 hover-elevate glass-panel border-none">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Globe className="h-4 w-4 text-accent" />
+              Live World Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+              {activityFeed?.map((item: any, i: number) => (
+                <motion.div 
+                  key={i}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border/50 hover:border-primary/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-primary/10 text-primary">
+                      {item.type === 'SWAP' ? <Zap size={14} /> : <Activity size={14} />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">{item.protocol}</p>
+                      <p className="text-xs text-muted-foreground">{item.description}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-mono text-muted-foreground truncate w-16">{item.hash}</p>
+                    <p className="text-[10px] text-muted-foreground">Just now</p>
+                  </div>
+                </motion.div>
+              ))}
+              {!activityFeed && (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground space-y-2">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs">Connecting to Solana Testnet...</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
