@@ -20,15 +20,10 @@
         {
             "source": "/api/deposits/:id",
             "destination": "/api/deposits"
-        }
-    ],
-    "routes": [
-        {
-            "handle": "filesystem"
         },
         {
-            "src": "/(.*)",
-            "dest": "/index.html"
+            "source": "/(.*)",
+            "destination": "/index.html"
         }
     ]
 }
