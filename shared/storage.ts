@@ -3,7 +3,7 @@ import {
     strategies, deposits, rebalanceEvents,
     type Strategy, type Deposit, type RebalanceEvent,
     type InsertStrategy, type InsertDeposit
-} from "@shared/schema";
+} from "./schema.js";
 import { eq, desc, and, not } from "drizzle-orm";
 
 export interface IStorage {
