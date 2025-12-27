@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { solanaService } from "../lib/solana";
+import { solanaService } from "@shared/solana";
 
 export default async function handler(
     req: VercelRequest,

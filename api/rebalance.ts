@@ -1,6 +1,6 @@
-```typescript
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from "./lib/storage";
+import { storage } from "@shared/storage";
+
 
 export default async function handler(
     req: VercelRequest,
@@ -49,7 +49,7 @@ export default async function handler(
                         fromStrategyId: deposit.strategyId,
                         toStrategyId: highestApyStrategy.id,
                         amount: deposit.amount,
-                        reason: `Moving to ${ highestApyStrategy.name } for higher APY(${ highestApyStrategy.apy } %)`
+                        reason: `Moving to ${highestApyStrategy.name} for higher APY(${highestApyStrategy.apy} %)`
                     });
                 }
             }
