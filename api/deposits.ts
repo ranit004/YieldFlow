@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from "@shared/storage";
+import { storage } from "../shared/storage.js";
 import { z } from 'zod';
 import { api } from '@shared/routes';
 

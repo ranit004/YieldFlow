@@ -1,4 +1,4 @@
-import { db } from "@shared/db";
+import { db } from "./db.js";
 import {
     strategies, deposits, rebalanceEvents,
     type Strategy, type Deposit, type RebalanceEvent,
