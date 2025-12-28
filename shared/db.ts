@@ -4,34 +4,29 @@ import * as schema from "./schema.js";
 
 const { Pool } = pg;
 
-let poolInstance: pg.Pool | null = null;
-let dbInstance: ReturnType<typeof drizzle> | null = null;
+// Export functions that create connections on-demand
+export function createPool() {
+    const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
-function getPool() {
-    if (!poolInstance) {
-        const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+    console.log('[DB] Creating pool with env vars:', {
+        hasDatabaseUrl: !!process.env.DATABASE_URL,
+        hasPostgresUrl: !!process.env.POSTGRES_URL,
+        prefix: connectionString?.substring(0, 20)
+    });
 
-        if (!connectionString) {
-            throw new Error(
-                "DATABASE_URL or POSTGRES_URL must be set. Did you forget to provision a database?",
-            );
-        }
-
-        poolInstance = new Pool({ connectionString });
+    if (!connectionString) {
+        throw new Error(
+            "DATABASE_URL or POSTGRES_URL must be set. Did you forget to provision a database?",
+        );
     }
-    return poolInstance;
+
+    return new Pool({ connectionString });
 }
 
-function getDb() {
-    if (!dbInstance) {
-        dbInstance = drizzle(getPool(), { schema });
-    }
-    return dbInstance;
+export function createDb() {
+    return drizzle(createPool(), { schema });
 }
 
-export { getPool as pool };
-export const db = new Proxy({} as ReturnType<typeof drizzle>, {
-    get(target, prop) {
-        return (getDb() as any)[prop];
-    }
-});
+// For backwards compatibility, export instances
+export const pool = createPool();
+export const db = createDb();
