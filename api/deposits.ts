@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { storage } from "../shared/storage.js";
 import { z } from 'zod';
-import { api } from '@shared/routes';
+import { api } from '../shared/routes.js';
 
 export default async function handler(
     req: VercelRequest,
