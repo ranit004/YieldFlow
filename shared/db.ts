@@ -4,11 +4,11 @@ import * as schema from "./schema.js";
 
 const { Pool } = pg;
 
-let pool: pg.Pool | null = null;
-let db: ReturnType<typeof drizzle> | null = null;
+let poolInstance: pg.Pool | null = null;
+let dbInstance: ReturnType<typeof drizzle> | null = null;
 
 function getPool() {
-    if (!pool) {
+    if (!poolInstance) {
         const connectionString = process.env.DATABASE_URL || process.env.POSTGRES_URL;
 
         if (!connectionString) {
@@ -17,16 +17,16 @@ function getPool() {
             );
         }
 
-        pool = new Pool({ connectionString });
+        poolInstance = new Pool({ connectionString });
     }
-    return pool;
+    return poolInstance;
 }
 
 function getDb() {
-    if (!db) {
-        db = drizzle(getPool(), { schema });
+    if (!dbInstance) {
+        dbInstance = drizzle(getPool(), { schema });
     }
-    return db;
+    return dbInstance;
 }
 
 export { getPool as pool };
