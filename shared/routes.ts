@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertStrategySchema, insertDepositSchema, strategies, deposits, rebalanceEvents } from './schema';
+import { insertStrategySchema, insertDepositSchema, strategies, deposits, rebalanceEvents } from './schema.js';
 
 export const errorSchemas = {
   validation: z.object({
