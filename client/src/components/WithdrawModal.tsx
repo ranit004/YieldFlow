@@ -7,14 +7,16 @@ import { useWallet } from "@/hooks/use-wallet";
 import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { solanaTransactionService } from "@/services/solana-transactions";
 import { TransactionStatusDisplay, TransactionStatus } from "@/components/TransactionStatus";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@shared/routes";
 
 interface WithdrawModalProps {
     deposit: {
         id: number;
         amount: string;
         tokenSymbol: string;
-        strategyId: number;
-        txHash?: string;
+        strategyId: number | null;
+        txHash?: string | null;
     } | null;
     isOpen: boolean;
     onClose: () => void;
@@ -28,6 +30,8 @@ export function WithdrawModal({ deposit, isOpen, onClose, onSuccess }: WithdrawM
     const { toast } = useToast();
     const { address } = useWallet();
     const solanaWallet = useSolanaWallet();
+    const queryClient = useQueryClient();
+    const fullAddress = solanaWallet.publicKey?.toBase58() || "";
 
     if (!deposit) return null;
 
@@ -80,13 +84,19 @@ export function WithdrawModal({ deposit, isOpen, onClose, onSuccess }: WithdrawM
                 // Update deposit status in database to 'withdrawn'
                 try {
                     console.log('Updating deposit status to withdrawn for ID:', deposit.id);
-                    const response = await fetch(`/api/deposits/${deposit.id}`, {
+                    const response = await fetch(`/api/deposits?id=${deposit.id}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ status: 'withdrawn' }),
                     });
                     const result = await response.json();
                     console.log('Deposit status update response:', result);
+
+                    // Invalidate the deposits query cache to force refresh
+                    await queryClient.invalidateQueries({
+                        queryKey: [api.deposits.list.path, fullAddress]
+                    });
+                    console.log('Query cache invalidated for deposits');
                 } catch (error) {
                     console.error('Failed to update deposit status:', error);
                     // Don't fail the whole flow if database update fails
