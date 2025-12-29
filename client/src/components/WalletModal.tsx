@@ -10,11 +10,23 @@ import {
 import { Button } from "@/components/ui/button";
 
 export function WalletModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-    const { wallets, select } = useSolanaWallet();
+    const { wallets, select, connect, connecting } = useSolanaWallet();
 
     const handleWalletClick = async (walletName: any) => {
-        select(walletName);
-        onClose();
+        try {
+            select(walletName);
+            // Give time for the wallet to be selected, then connect
+            setTimeout(async () => {
+                try {
+                    await connect();
+                } catch (error) {
+                    console.error('Connection error:', error);
+                }
+            }, 100);
+            onClose();
+        } catch (error) {
+            console.error('Wallet selection error:', error);
+        }
     };
 
     return (
