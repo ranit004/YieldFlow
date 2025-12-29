@@ -8,7 +8,6 @@ import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { solanaTransactionService } from "@/services/solana-transactions";
 import { TransactionStatusDisplay, TransactionStatus } from "@/components/TransactionStatus";
 import { useQueryClient } from "@tanstack/react-query";
-import { api } from "@shared/routes";
 
 interface WithdrawModalProps {
     deposit: {
@@ -94,7 +93,7 @@ export function WithdrawModal({ deposit, isOpen, onClose, onSuccess }: WithdrawM
 
                     // Invalidate the deposits query cache to force refresh
                     await queryClient.invalidateQueries({
-                        queryKey: [api.deposits.list.path, fullAddress]
+                        queryKey: ['deposits', fullAddress]
                     });
                     console.log('Query cache invalidated for deposits');
                 } catch (error) {
